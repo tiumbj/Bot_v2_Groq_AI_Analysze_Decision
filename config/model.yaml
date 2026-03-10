@@ -1,0 +1,5 @@
+meta_model_enabled: false
+meta_model_name: lightgbm_hit1r_filter_v1
+keep_probability_threshold: 0.62
+drift_detector_name: adwin
+label_name: label_hit_1r

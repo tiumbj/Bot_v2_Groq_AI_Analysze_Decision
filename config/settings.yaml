@@ -1,0 +1,13 @@
+app_name: OracleBot-Pro
+environment: prod
+timezone: Asia/Bangkok
+symbols:
+  - GOLD
+  - XAUUSD
+  - XAUUSDm
+timeframe: M15
+primary_loop_seconds: 10
+sqlite_path: storage/bot.db
+log_directory: storage/logs
+dry_run: true
+max_bars_fetch: 500

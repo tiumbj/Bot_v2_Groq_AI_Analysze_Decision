@@ -1,0 +1,8 @@
+provider: groq
+model_name: llama-3.3-70b-versatile
+temperature: 0.0
+timeout_seconds: 20
+max_retries: 2
+prompt_version: ai_decision_v1
+require_json_response: true
+minimum_confidence: 0.65

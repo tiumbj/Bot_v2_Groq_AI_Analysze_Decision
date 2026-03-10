@@ -1,0 +1,24 @@
+symbols:
+  GOLD:
+    point_value: 0.01
+    price_digits: 2
+    volume_min: 0.01
+    volume_max: 50.0
+    volume_step: 0.01
+    contract_size_hint: 100.0
+
+  XAUUSD:
+    point_value: 0.01
+    price_digits: 2
+    volume_min: 0.01
+    volume_max: 50.0
+    volume_step: 0.01
+    contract_size_hint: 100.0
+
+  XAUUSDm:
+    point_value: 0.01
+    price_digits: 2
+    volume_min: 0.01
+    volume_max: 10.0
+    volume_step: 0.01
+    contract_size_hint: 100.0

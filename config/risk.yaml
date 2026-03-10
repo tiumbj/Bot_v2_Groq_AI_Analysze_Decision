@@ -1,0 +1,9 @@
+risk_per_trade_pct: 1.0
+minimum_rr: 2.0
+max_open_positions_per_symbol: 1
+max_daily_loss_pct: 3.0
+cooldown_bars: 1
+one_trade_per_bar: true
+allow_market_order_only: true
+hard_max_stop_distance_atr: 4.0
+default_take_profit_rr: 2.0
