@@ -1,0 +1,763 @@
+State Diagram + Project Overview
+
+เวอร์ชัน: v1.0-project-overview-state-diagram
+
+เอกสารนี้สรุปทั้งระบบในมุม:
+
+ภาพรวมโปรเจกต์
+
+โครงสร้างไฟล์
+
+หน้าที่ของแต่ละส่วน
+
+State Diagram หลักของระบบ
+
+State Diagram ของ Data/Decision Flow
+
+สถานะปัจจุบันของแต่ละโมดูล
+
+Dependency ระหว่างไฟล์
+
+ขอบเขตที่ล็อกไว้
+
+ลำดับพัฒนาต่อ
+
+1) Project Overview
+ชื่อระบบ
+
+OracleBot-Pro AI Trading System
+
+เป้าหมาย
+
+สร้างระบบเทรดอัตโนมัติแบบ production ที่ทำงานตามลำดับนี้:
+
+MT5 Market Data
+→ Python Feature Engine
+→ Candidate Setup Detection
+→ AI Decision Layer
+→ Python Risk / RR / Lot Validation
+→ MT5 Execution
+→ Logging / Outcome Tracking
+→ Learning Store / ML Meta Filter
+แนวคิดหลัก
+
+Python คุมความถูกต้องเชิงระบบ
+
+AI วิเคราะห์ candidate setup
+
+ML เรียนจากผลลัพธ์ย้อนหลัง
+
+MT5 เป็น market/execution endpoint
+
+จุดสำคัญ
+
+รองรับ หลาย symbol
+
+ใช้โครงสร้าง lean production
+
+ไม่ใช้ toy code
+
+ไม่เปิด scope เพิ่มเอง
+
+ล็อก architecture ตั้งแต่ต้น
+
+2) Locked Scope
+สิ่งที่ระบบนี้ “ต้องทำ”
+
+ดึงข้อมูลจาก MT5
+
+คำนวณ feature ตามชุด indicator ที่ล็อก
+
+หา candidate setup
+
+ส่ง candidate ให้ AI วิเคราะห์
+
+Python validate:
+
+confidence
+
+entry zone
+
+stop loss
+
+lot size
+
+RR
+
+execution rules
+
+ส่ง order ไป MT5
+
+เก็บ log และ outcome
+
+ใช้ ML เป็น meta filter ภายหลัง
+
+สิ่งที่ “ไม่อยู่ใน v1”
+
+RL
+
+multi-agent
+
+self-modifying system
+
+martingale
+
+grid
+
+hedge
+
+pyramiding
+
+trailing stop
+
+partial close
+
+online learning แบบ train ทุกแท่ง
+
+indicator เพิ่มนอกชุดที่ล็อก
+
+3) Project Structure
+OracleBot-Pro/
+│
+├── app/
+│   ├── main.py
+│   ├── smoke_test_data_feature.py
+│   └── smoke_test_candidate.py                [planned]
+│
+├── core/
+│   ├── mt5_gateway.py
+│   ├── market_data.py
+│   ├── feature_engine.py
+│   ├── candidate_engine.py                    [planned]
+│   ├── state_guard.py                         [planned]
+│   ├── logger_engine.py                       [planned]
+│   ├── ai_decision.py                         [planned]
+│   ├── decision_validator.py                  [planned]
+│   ├── risk_engine.py                         [planned]
+│   ├── execution_engine.py                    [planned]
+│   └── outcome_tracker.py                     [planned]
+│
+├── learning/
+│   ├── feature_store.py                       [planned]
+│   ├── labeler.py                             [planned]
+│   ├── meta_model.py                          [planned]
+│   ├── calibrator.py                          [planned]
+│   ├── drift_monitor.py                       [planned]
+│   └── model_registry.py                      [planned]
+│
+├── models/
+│   ├── enums.py
+│   └── schemas.py
+│
+├── config/
+│   ├── settings.yaml
+│   ├── risk.yaml
+│   ├── ai.yaml
+│   ├── model.yaml
+│   └── symbol.yaml
+│
+├── storage/
+│   ├── db.py
+│   ├── bot.db
+│   └── logs/
+│
+└── docs/
+    └── State_Diagram.md                       [recommended output file later]
+4) Current Module Status
+Done
+
+app/main.py
+
+app/smoke_test_data_feature.py
+
+core/mt5_gateway.py
+
+core/market_data.py
+
+core/feature_engine.py
+
+models/enums.py
+
+models/schemas.py
+
+storage/db.py
+
+config/settings.yaml
+
+config/risk.yaml
+
+config/ai.yaml
+
+config/model.yaml
+
+config/symbol.yaml
+
+Planned next
+
+core/candidate_engine.py
+
+core/state_guard.py
+
+core/logger_engine.py
+
+app/smoke_test_candidate.py
+
+Planned later
+
+core/ai_decision.py
+
+core/decision_validator.py
+
+core/risk_engine.py
+
+core/execution_engine.py
+
+core/outcome_tracker.py
+
+learning/*
+
+5) Indicator / Feature Categories
+Trend
+
+EMA20
+
+EMA50
+
+EMA200
+
+EMA20 slope
+
+EMA spread ratio
+
+Momentum
+
+RSI14
+
+MACD line
+
+MACD signal
+
+MACD histogram
+
+Volatility
+
+ATR14
+
+Bollinger upper
+
+Bollinger mid
+
+Bollinger lower
+
+Bollinger width
+
+Trend Strength
+
+ADX14
+
++DI
+
+-DI
+
+Structure
+
+swing high
+
+swing low
+
+distance to swing high in ATR
+
+distance to swing low in ATR
+
+breakout state
+
+retest state
+
+Context
+
+spread
+
+session
+
+open position flag
+
+6) State Diagram — System Overview
+7) State Diagram — Decision Lifecycle
+8) State Diagram — Module Dependency
+9) Detailed Component Overview
+app/main.py
+หน้าที่
+
+โหลด config
+
+validate runtime
+
+init DB
+
+init log path
+
+เป็น entry point หลัก
+
+dependency
+
+models/schemas.py
+
+storage/db.py
+
+config/*.yaml
+
+core/mt5_gateway.py
+หน้าที่
+
+เชื่อมต่อ MT5
+
+ดึง symbol info
+
+ดึง tick
+
+ดึง position
+
+ดึง rates
+
+map timeframe
+
+dependency
+
+MetaTrader5
+
+MT5 terminal
+
+core/market_data.py
+หน้าที่
+
+ดึง OHLCV จาก MT5
+
+validate frame
+
+sort data
+
+ตัด live bar
+
+โหลดหลาย symbol
+
+dependency
+
+core/mt5_gateway.py
+
+core/feature_engine.py
+หน้าที่
+
+คำนวณ indicator ทั้งหมดใน v1
+
+แปลงข้อมูลเป็น FeatureSnapshot
+
+ใส่ context เช่น session, spread, open position flag
+
+dependency
+
+models/enums.py
+
+models/schemas.py
+
+core/candidate_engine.py [planned]
+หน้าที่
+
+ตรวจว่า snapshot นี้เป็น candidate setup หรือไม่
+
+ไม่ใช่ final trade decision
+
+แค่คัด setup ที่ควรส่งให้ AI
+
+candidate types ที่ล็อก
+
+trend_pullback_long
+
+trend_pullback_short
+
+breakout_retest_long
+
+breakout_retest_short
+
+core/state_guard.py [planned]
+หน้าที่
+
+one trade per bar
+
+cooldown
+
+duplicate block
+
+open position block
+
+session filter
+
+spread filter
+
+core/logger_engine.py [planned]
+หน้าที่
+
+บันทึก snapshot
+
+บันทึก candidate
+
+บันทึก AI decision
+
+บันทึก execution
+
+บันทึก errors
+
+core/ai_decision.py [planned]
+หน้าที่
+
+สร้าง prompt
+
+ส่ง candidate เข้า AI
+
+รับ structured JSON
+
+core/decision_validator.py [planned]
+หน้าที่
+
+ตรวจ JSON schema
+
+ตรวจ direction consistency
+
+ตรวจ entry/SL validity
+
+fail closed ถ้าพัง
+
+core/risk_engine.py [planned]
+หน้าที่
+
+lot size
+
+RR
+
+stop distance
+
+max risk
+
+max daily loss
+
+normalize volume
+
+core/execution_engine.py [planned]
+หน้าที่
+
+ส่ง market order
+
+validate final spread
+
+persist execution result
+
+core/outcome_tracker.py [planned]
+หน้าที่
+
+hit_1r
+
+hit_2r
+
+pnl_r
+
+MFE
+
+MAE
+
+close reason
+
+labeling inputs
+
+learning/* [planned]
+หน้าที่
+
+เก็บ training rows
+
+สร้าง labels
+
+train LightGBM
+
+calibrate probability
+
+detect drift ด้วย ADWIN
+
+version model
+
+10) Database Overview
+ตารางหลัก
+
+feature_snapshots
+
+candidates
+
+ai_decisions
+
+executions
+
+outcomes
+
+model_runs
+
+runtime_state
+
+ความสัมพันธ์หลัก
+11) Runtime Flow Step-by-Step
+Step 1
+
+โหลด config ทั้งหมด
+
+Step 2
+
+validate schema
+
+Step 3
+
+init database และ log directory
+
+Step 4
+
+เชื่อม MT5
+
+Step 5
+
+วนลูปตาม symbol ทั้งหมด
+
+Step 6
+
+ดึง market data ของแต่ละ symbol
+
+Step 7
+
+validate frame และตัด live bar
+
+Step 8
+
+คำนวณ feature ทั้งหมด
+
+Step 9
+
+สร้าง FeatureSnapshot
+
+Step 10
+
+ให้ candidate_engine หา setup
+
+Step 11
+
+ให้ state_guard block สิ่งที่ไม่ควรเทรด
+
+Step 12
+
+ส่ง candidate เข้า AI
+
+Step 13
+
+validate AI output
+
+Step 14
+
+คำนวณ lot size / RR / TP
+
+Step 15
+
+ส่ง order ไป MT5
+
+Step 16
+
+เก็บ execution log
+
+Step 17
+
+ติดตามผล trade
+
+Step 18
+
+เก็บ outcome เข้า learning store
+
+12) Dependency Chain
+Core dependency
+config/*.yaml
+→ models/schemas.py
+→ app/main.py
+→ storage/db.py
+→ core/mt5_gateway.py
+→ core/market_data.py
+→ core/feature_engine.py
+→ core/candidate_engine.py
+→ core/state_guard.py
+→ core/ai_decision.py
+→ core/decision_validator.py
+→ core/risk_engine.py
+→ core/execution_engine.py
+→ core/outcome_tracker.py
+→ learning/*
+Build order ที่ถูก
+
+models + config + db
+
+mt5_gateway
+
+market_data
+
+feature_engine
+
+candidate_engine
+
+state_guard
+
+logger_engine
+
+ai_decision
+
+decision_validator
+
+risk_engine
+
+execution_engine
+
+outcome_tracker
+
+learning
+
+13) Current Progress State Diagram
+14) Production Status by File
+15) AI Contract Overview
+Input to AI
+
+symbol
+
+timeframe
+
+setup_type
+
+direction
+
+candidate entry zone
+
+invalidation anchor
+
+summarized features
+
+spread/session/open-position context
+
+Output from AI
+{
+  "decision": "BUY",
+  "approved": true,
+  "confidence": 0.78,
+  "entry_min": 2910.2,
+  "entry_max": 2911.0,
+  "stop_loss": 2905.8,
+  "setup_quality": 0.74,
+  "trend_alignment": 0.82,
+  "regime_fit": 0.69,
+  "exhaustion_risk": 0.18,
+  "reason": "Bullish pullback within valid continuation structure"
+}
+Rule
+
+AI ห้าม flip direction
+
+AI ห้ามกำหนด lot
+
+AI ห้าม override risk policy
+
+AI ตอบ JSON เดียวเท่านั้น
+
+16) Learning Stack Overview
+Feature Store
+
+เก็บ candidate ทุกตัว ไม่ใช่เฉพาะ trade ที่เข้า
+
+Labels
+
+label_hit_1r
+
+label_hit_2r
+
+label_positive_at_10_bars
+
+label_trade_success
+
+ML
+
+LightGBM เป็น meta model
+
+ADWIN เป็น drift detector
+
+Learning flow
+17) Operating Rules
+Trading rules
+
+multi-symbol allowed
+
+one position per symbol
+
+one trade per bar
+
+fixed risk %
+
+fixed RR minimum
+
+market order only in v1
+
+Safety rules
+
+invalid AI JSON = reject
+
+missing data = reject
+
+spread bad = reject
+
+cooldown active = reject
+
+open position exists = reject
+
+Engineering rules
+
+full-file replacement only
+
+no patch snippets
+
+clean code only
+
+production-first
+
+minimal but complete
+
+18) Recommended Output File Name
+
+ถ้าจะบันทึกเอกสารนี้ลงไฟล์ในโปรเจกต์ ให้ใช้ชื่อ:
+
+ชื่อไฟล์
+
+docs/State_Diagram.md
+
+หรือถ้าต้องการแบบข้อความล้วน:
+
+ชื่อไฟล์
+
+docs/State_Diagram.txt
+
+19) สรุปสุดท้าย
+
+ตอนนี้ภาพรวมของโปรเจกต์คือ:
+
+Foundation Layer เสร็จแล้ว
+
+Market Data + Feature Layer เสร็จแล้ว
+
+ขั้นต่อไปคือ Candidate + Guard + Logging
+
+จากนั้นจึงเข้า AI Decision → Risk → Execution → Outcome → Learning
+
+แกนของระบบ
+MT5 → Python Features → Candidate → AI → Validation → Risk → Execution → Outcome → ML
+สถานะรวม
+
+Architecture ชัด
+
+Scope ถูกล็อก
+
+รองรับ multi-symbol
+
+พร้อมต่อยอดแบบ production

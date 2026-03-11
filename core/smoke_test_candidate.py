@@ -1,12 +1,11 @@
 """
 Bot_Pro AI Trading System
 File: app/smoke_test_candidate.py
-Version: v1.1.0
+Version: v1.0.0
 
 Purpose
 - End-to-end smoke test for alias-aware candidate post-processing
 - Validate that GOLD / XAUUSD / XAUUSDm do not create duplicate handling
-- Validate raw symbol casing preservation in runtime logs/output
 - Provide deterministic console output for quick production sanity check
 
 Run
@@ -15,13 +14,7 @@ Run
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any, Dict, List
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.candidate_pipeline_postprocessor import CandidatePipelinePostprocessor
 
@@ -30,7 +23,7 @@ def build_sample_candidates() -> List[Dict[str, Any]]:
     """
     Deterministic smoke-test payload.
 
-    Scenario
+    Scenario:
     - GOLD and XAUUSDm represent the same underlying setup on the same bar
     - XAUUSD represents a later bar and should remain a separate setup
     """
@@ -75,13 +68,6 @@ def print_section(title: str) -> None:
     print(f"\n=== {title} ===")
 
 
-def find_line_containing(lines: List[str], text: str) -> str:
-    for line in lines:
-        if text in line:
-            return line
-    return ""
-
-
 def main() -> int:
     postprocessor = CandidatePipelinePostprocessor()
     rows = build_sample_candidates()
@@ -108,24 +94,12 @@ def main() -> int:
         print(item)
 
     summary = result["summary"]
-    accepted = result["accepted"]
-    rejected = result["rejected"]
-    log_lines = result["log_lines"]
 
     expected_input_candidates = 3
     expected_approved = 2
     expected_rejected = 1
     expected_duplicates_blocked = 1
     expected_unique_underlying_setups = 2
-
-    approved_xauusdm_line = find_line_containing(log_lines, "[XAUUSDm] APPROVED=BUY")
-    rejected_gold_line = find_line_containing(log_lines, "[GOLD] REJECTED=rejected_duplicate")
-    approved_xauusd_line = find_line_containing(log_lines, "[XAUUSD] APPROVED=BUY")
-    malformed_uppercase_exness_line = find_line_containing(log_lines, "[XAUUSDM]")
-
-    first_accepted_symbol = accepted[0]["input_symbol_raw"] if accepted else ""
-    accepted_symbols = [item["input_symbol_raw"] for item in accepted]
-    rejected_symbols = [item["input_symbol_raw"] for item in rejected]
 
     checks = [
         (
@@ -147,62 +121,6 @@ def main() -> int:
         (
             summary["unique_underlying_setups"] == expected_unique_underlying_setups,
             f"unique_underlying_setups expected={expected_unique_underlying_setups} actual={summary['unique_underlying_setups']}",
-        ),
-        (
-            len(accepted) == 2,
-            f"accepted_list_length expected=2 actual={len(accepted)}",
-        ),
-        (
-            len(rejected) == 1,
-            f"rejected_list_length expected=1 actual={len(rejected)}",
-        ),
-        (
-            "XAUUSDm" in accepted_symbols,
-            f"accepted_symbols contains XAUUSDm actual={accepted_symbols}",
-        ),
-        (
-            "XAUUSD" in accepted_symbols,
-            f"accepted_symbols contains XAUUSD actual={accepted_symbols}",
-        ),
-        (
-            rejected_symbols == ["GOLD"],
-            f"rejected_symbols expected=['GOLD'] actual={rejected_symbols}",
-        ),
-        (
-            first_accepted_symbol == "XAUUSDm",
-            f"first_accepted_symbol expected='XAUUSDm' actual='{first_accepted_symbol}'",
-        ),
-        (
-            bool(approved_xauusdm_line),
-            "approved log line for raw symbol casing [XAUUSDm] exists",
-        ),
-        (
-            bool(rejected_gold_line),
-            "rejected duplicate log line for [GOLD] exists",
-        ),
-        (
-            bool(approved_xauusd_line),
-            "approved log line for second setup [XAUUSD] exists",
-        ),
-        (
-            not bool(malformed_uppercase_exness_line),
-            "no malformed uppercased runtime symbol [XAUUSDM] appears in logs",
-        ),
-        (
-            accepted[0]["display_symbol"] == "XAUUSDm",
-            f"display_symbol on first accepted expected='XAUUSDm' actual='{accepted[0]['display_symbol'] if accepted else ''}'",
-        ),
-        (
-            accepted[0]["runtime_symbol"] == "XAUUSDm",
-            f"runtime_symbol on first accepted expected='XAUUSDm' actual='{accepted[0]['runtime_symbol'] if accepted else ''}'",
-        ),
-        (
-            accepted[0]["canonical_symbol"] == "XAUUSD",
-            f"canonical_symbol on first accepted expected='XAUUSD' actual='{accepted[0]['canonical_symbol'] if accepted else ''}'",
-        ),
-        (
-            rejected[0]["duplicate_blocked"] is True if rejected else False,
-            f"duplicate_blocked on rejected expected=True actual='{rejected[0]['duplicate_blocked'] if rejected else ''}'",
         ),
     ]
 

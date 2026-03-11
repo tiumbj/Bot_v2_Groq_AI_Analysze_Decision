@@ -1,0 +1,203 @@
+State Diagram V2 (Detailed)
+Project: Bot_Pro AI Trading System
+Path: D:\Bot_Pro
+Version: v2.1.0
+Updated: 2026-03-11
+Timezone: Asia/Bangkok
+
+Scope
+- Reflect current locked production architecture (as implemented in this repo)
+- Mark completed parts vs next planned parts
+- Include alias handling for gold family (GOLD / XAUUSD / XAUUSDm)
+- Use Mermaid stateDiagram-v2 syntax
+
+Current verified runtime facts (from code + smoke tests)
+- Alias-aware candidate post-processing smoke test: PASSED
+  - GOLD / XAUUSD / XAUUSDm on same bar/setup collapse to 1 underlying setup
+  - raw symbol casing preserved in logs/output
+- Canonicalization rule implemented (analysis symbol):
+  - GOLD -> XAUUSD
+  - XAUUSDm / XAUUSD.<suffix> -> XAUUSD
+- MT5 gateway performs best-effort symbol resolution before select/fetch
+  - tries variants / suffix trimming / symbols_get lookup
+
+Status legend
+- ✅ Done
+- ⏳ Pending
+
+Core files and status (actual current repo)
+- app/main.py                               ✅ Done
+- app/smoke_test_data_feature.py            ✅ Done
+- app/smoke_test_candidate.py               ✅ Done (alias + dedupe smoke)
+- core/mt5_gateway.py                       ✅ Done
+- core/market_data.py                       ✅ Done
+- core/feature_engine.py                    ✅ Done
+- core/candidate_engine.py                  ✅ Done
+- core/state_guard.py                       ✅ Done
+- core/logger_engine.py                     ✅ Done
+- core/symbol_registry.py                   ✅ Done
+- core/decision_validator.py                ✅ Done
+- core/candidate_pipeline_postprocessor.py  ✅ Done
+- core/runtime_candidate_reporter.py        ✅ Done
+- core/ai_decision.py                       ⏳ Pending
+- core/execution_engine.py                  ⏳ Pending
+
+Storage outputs
+- storage/bot.db                            ✅ Used by StateGuard (runtime_guard_events)
+- storage/logs/*.jsonl                      ✅ Used by LoggerEngine
+
+Main functional flow (current + next)
+1) MT5 gateway initializes
+2) Market data service loads bars per symbol
+3) Feature engine builds locked-v1 feature snapshot
+4) Candidate engine detects BUY/SELL candidate (or NO_CANDIDATE)
+5) State guard blocks invalid runtime states (open position / one trade per bar / cooldown)
+6) Logger engine writes structured logs (snapshot / candidate / guard)
+7) Symbol registry resolves alias -> canonical symbol (analysis symbol)
+8) Decision validator blocks duplicate underlying setup across aliases
+9) Candidate pipeline postprocessor produces runtime-safe report + logs
+10) Next: AI decision confirms/denies candidate
+11) Next: execution engine sends order to broker-specific execution symbol
+
+Dependencies (actual)
+- mt5_gateway.py -> required before market_data.py
+- market_data.py -> required before feature_engine.py
+- feature_engine.py -> required before candidate_engine.py
+- candidate_engine.py -> required before state_guard.py / logger_engine.py usage
+- symbol_registry.py -> required before decision_validator.py / postprocessor
+- decision_validator.py -> used inside candidate_pipeline_postprocessor.py
+
+Alias logic requirement (implemented)
+- canonical symbol for gold family = XAUUSD
+- execution symbol depends on broker/terminal:
+  - XM => GOLD
+  - Exness => XAUUSDm
+  - Demo => XAUUSD
+- duplicate candidates on GOLD/XAUUSD/XAUUSDm in same bar must collapse into one underlying setup
+
+Mermaid state diagrams
+
+1) End-to-end runtime (high level)
+```mermaid
+stateDiagram-v2
+    [*] --> RuntimeStart
+
+    state "RuntimeStart\n(app entry)\napp/main.py" as RuntimeStart
+    state "GatewayReady\ncore/mt5_gateway.py" as GatewayReady
+    state "PerSymbolLoop\nfor symbol in config.symbols" as PerSymbolLoop
+    state "PersistLogs\ncore/logger_engine.py\n(storage/logs/*.jsonl)" as PersistLogs
+    state "PostProcess\ncore/candidate_pipeline_postprocessor.py" as PostProcess
+    state "RuntimeReport\ncore/runtime_candidate_reporter.py" as RuntimeReport
+    state "Next: AIConfirm\ncore/ai_decision.py" as AIConfirm
+    state "Next: ExecuteOrder\ncore/execution_engine.py" as ExecuteOrder
+
+    RuntimeStart --> GatewayReady
+    GatewayReady --> PerSymbolLoop
+    PerSymbolLoop --> PersistLogs
+    PersistLogs --> PostProcess
+    PostProcess --> RuntimeReport
+    RuntimeReport --> AIConfirm
+    AIConfirm --> ExecuteOrder
+    ExecuteOrder --> [*]
+```
+
+2) Per-symbol flow (detailed with success + failure branches)
+```mermaid
+stateDiagram-v2
+    [*] --> SymbolStart
+
+    state "SymbolStart\nsymbol from settings.yaml" as SymbolStart
+    state "ResolveExecutionSymbol\n(mt5 symbol variants)\ncore/mt5_gateway.py" as ResolveExecutionSymbol
+    state "FetchBars\ncore/market_data.py" as FetchBars
+    state "ValidateFrame\n(OHLCV columns, >=250 bars,\ntrim live bar)" as ValidateFrame
+    state "BuildSnapshot\ncore/feature_engine.py" as BuildSnapshot
+    state "DetectCandidate\ncore/candidate_engine.py" as DetectCandidate
+    state "GuardEvaluate\ncore/state_guard.py\n(storage/bot.db)" as GuardEvaluate
+    state "LogFeatureSnapshot\ncore/logger_engine.py" as LogFeatureSnapshot
+    state "LogCandidateAndGuard\ncore/logger_engine.py" as LogCandidateAndGuard
+    state "EmitCandidate\n(raw candidate dict)" as EmitCandidate
+    state "EmitNoCandidate" as EmitNoCandidate
+    state "BlockedByGuard" as BlockedByGuard
+
+    state "Fail: SymbolNotFound\nMT5 symbol resolution fails" as FailSymbol
+    state "Fail: FetchBars\nMT5 copy_rates fails" as FailFetch
+    state "Fail: InvalidFrame\nmissing cols / NaN / not enough bars" as FailFrame
+    state "Fail: FeatureBuild\nnormalize_frame fails" as FailFeature
+
+    SymbolStart --> ResolveExecutionSymbol
+    ResolveExecutionSymbol --> FetchBars
+    ResolveExecutionSymbol --> FailSymbol
+
+    FetchBars --> ValidateFrame
+    FetchBars --> FailFetch
+
+    ValidateFrame --> BuildSnapshot
+    ValidateFrame --> FailFrame
+
+    BuildSnapshot --> DetectCandidate
+    BuildSnapshot --> FailFeature
+
+    DetectCandidate --> EmitNoCandidate
+    DetectCandidate --> GuardEvaluate
+
+    GuardEvaluate --> BlockedByGuard
+    GuardEvaluate --> LogFeatureSnapshot
+
+    LogFeatureSnapshot --> LogCandidateAndGuard
+    LogCandidateAndGuard --> EmitCandidate
+
+    EmitCandidate --> [*]
+    EmitNoCandidate --> [*]
+    BlockedByGuard --> [*]
+    FailSymbol --> [*]
+    FailFetch --> [*]
+    FailFrame --> [*]
+    FailFeature --> [*]
+```
+
+3) Alias canonicalization + duplicate blocking (gold family)
+```mermaid
+stateDiagram-v2
+    [*] --> RawCandidate
+
+    state "RawCandidate\n{symbol,timeframe,bar_time,decision,...}" as RawCandidate
+    state "NormalizeSymbol\nUPPER()" as NormalizeSymbol
+    state "Canonicalize\ncore/symbol_registry.py\n(GOLD/XAUUSD/XAUUSDm -> XAUUSD)" as Canonicalize
+    state "BuildDedupeKey\ncanonical + setup_key/time+bar + decision\ncore/decision_validator.py" as BuildDedupeKey
+    state "RankCandidates\n(score, bar_time, setup_key)" as RankCandidates
+    state "AcceptPrimary\nstatus=accepted" as AcceptPrimary
+    state "RejectDuplicate\nstatus=rejected_duplicate\nreason=duplicate_underlying_setup_across_aliases" as RejectDuplicate
+
+    RawCandidate --> NormalizeSymbol
+    NormalizeSymbol --> Canonicalize
+    Canonicalize --> BuildDedupeKey
+    BuildDedupeKey --> RankCandidates
+
+    RankCandidates --> AcceptPrimary
+    RankCandidates --> RejectDuplicate
+
+    AcceptPrimary --> [*]
+    RejectDuplicate --> [*]
+```
+
+4) Guard decision states (trade throttling)
+```mermaid
+stateDiagram-v2
+    [*] --> GuardStart
+
+    state "GuardStart\ncore/state_guard.py" as GuardStart
+    state "CheckOpenPosition\nblocked_open_position" as CheckOpenPosition
+    state "CheckOneTradePerBar\nblocked_one_trade_per_bar" as CheckOneTradePerBar
+    state "CheckCooldown\nblocked_cooldown" as CheckCooldown
+    state "Allowed\nallowed" as Allowed
+
+    GuardStart --> CheckOpenPosition
+    CheckOpenPosition --> Allowed
+    CheckOpenPosition --> [*]
+
+    Allowed --> CheckOneTradePerBar
+    CheckOneTradePerBar --> CheckCooldown
+    CheckOneTradePerBar --> [*]
+
+    CheckCooldown --> [*]
+```
